@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>陰極線シミュレーション</title>
+    <style>
+        /* ======== 1. 全体レイアウト ======== */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans CJK JP", "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f4f8;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* ======== 2. メイン領域（シミュレーション） ======== */
+        .simulation-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-color: #ffffff;
+            border-right: 1px solid #d1d9e6;
+        }
+
+        #simCanvas {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: block;
+        }
+
+        /* ======== 3. コントロールパネル（右側） ======== */
+        .control-panel {
+            width: 340px;
+            flex-shrink: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #f0f4f8;
+            overflow-y: auto;
+        }
+
+        .control-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .control-card h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            color: #2c3e50;
+            border-bottom: 2px solid #e0e6ed;
+            padding-bottom: 10px;
+        }
+
+        .radio-group label {
+            display: block;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            border: 1px solid #d1d9e6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .radio-group input[type="radio"] {
+            display: none;
+        }
+
+        .radio-group input[type="radio"]:checked + label {
+            background-color: #e6f7ff;
+            border-color: #007bff;
+            color: #0056b3;
+            font-weight: 600;
+            box-shadow: 0 2px 6px rgba(0, 123, 255, 0.1);
+        }
+
+        .radio-group label:hover {
+            background-color: #eef2f7;
+        }
+
+        .slider-group {
+            margin-bottom: 20px;
+        }
+
+        .slider-group label {
+            display: block;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .slider-group input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .action-button {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.05em;
+            font-weight: 600;
+            color: #ffffff;
+            background-color: #28a745;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.05s ease;
+            margin-bottom: 10px;
+        }
+
+        .action-button:hover {
+            background-color: #218838;
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.2);
+        }
+
+        .action-button:active {
+            transform: scale(0.98);
+        }
+
+        .pause-button {
+            background-color: #ffc107 !important;
+        }
+
+        .pause-button:hover {
+            background-color: #e0a800 !important;
+            box-shadow: 0 4px 10px rgba(255, 193, 7, 0.2);
+        }
+
+        .stop-button {
+            background-color: #dc3545 !important;
+        }
+
+        .stop-button:hover {
+            background-color: #c82333 !important;
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.2);
+        }
+
+        .reset-button {
+            width: 100%;
+            padding: 12px;
+            font-size: 1em;
+            font-weight: 600;
+            color: #ffffff;
+            background-color: #6c757d;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .reset-button:hover {
+            background-color: #5a6268;
+            box-shadow: 0 4px 10px rgba(108, 117, 125, 0.2);
+        }
+
+        @media screen and (max-width: 1024px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .simulation-area {
+                height: 60vh;
+                border-right: none;
+                border-bottom: 1px solid #d1d9e6;
+            }
+
+            #simCanvas {
+                height: 100%;
+            }
+
+            .control-panel {
+                width: 100%;
+                height: auto;
+                max-height: 50vh;
+                padding: 15px;
+                overflow-y: auto;
+            }
+
+            .control-card {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+
+            .control-card h3 {
+                font-size: 1.1em;
+            }
+        }
+
+        @media screen and (max-width: 768px) {
+            .simulation-area {
+                height: 50vh;
+            }
+
+            .control-panel {
+                max-height: none;
+                padding: 10px;
+            }
+
+            .control-card {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+
+            .control-card h3 {
+                font-size: 1em;
+                margin-bottom: 10px;
+            }
+
+            .radio-group label {
+                padding: 10px 12px;
+                font-size: 0.9em;
+            }
+
+            .action-button, .reset-button {
+                padding: 12px;
+                font-size: 1em;
+            }
+
+            .slider-group label {
+                font-size: 0.85em;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            .simulation-area {
+                height: 45vh;
+            }
+
+            .control-panel {
+                padding: 8px;
+            }
+
+            .control-card h3 {
+                font-size: 0.95em;
+            }
+
+            .radio-group label {
+                padding: 8px 10px;
+                font-size: 0.85em;
+            }
+
+            .action-button, .reset-button {
+                padding: 10px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="simulation-area">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div class="control-panel">
+        <div class="control-card">
+            <h3>🧪 実験の選択</h3>
+            <div class="radio-group">
+                <input type="radio" id="exp0" name="experiment" value="basic" checked>
+                <label for="exp0">0. 陰極線の観察</label>
+
+                <input type="radio" id="exp1" name="experiment" value="shadow">
+                <label for="exp1">1. 直進と影（十字板）</label>
+
+                <input type="radio" id="exp2" name="experiment" value="magnetic">
+                <label for="exp2">2. 磁場による屈曲</label>
+
+                <input type="radio" id="exp3" name="experiment" value="electric">
+                <label for="exp3">3. 電場による屈曲</label>
+            </div>
+        </div>
+
+        <div class="control-card">
+            <h3>🔬 陰極線の発射</h3>
+            <button class="action-button" id="startButton">陰極線を発射開始</button>
+            <button class="action-button pause-button" id="pauseButton" style="display:none;">一時停止</button>
+            <button class="action-button" id="playButton" style="display:none;">▶ 再生</button>
+            <button class="action-button stop-button" id="stopButton" style="display:none;">陰極線を止める</button>
+        </div>
+
+        <div class="control-card" id="settingsCard">
+            <h3>⚙️ 条件設定</h3>
+            <div class="slider-group" id="voltageSliderGroup">
+                <label for="voltage">加速電圧（強さ）: <span id="voltageValue">50</span> V</label>
+                <input type="range" id="voltage" min="10" max="100" value="50">
+            </div>
+
+            <div class="slider-group" id="magneticSliderGroup" style="display:none;">
+                <label for="magneticField">磁場の強さ: <span id="magneticValue">0</span></label>
+                <input type="range" id="magneticField" min="-5" max="5" value="0">
+            </div>
+
+            <div class="slider-group" id="electricSliderGroup" style="display:none;">
+                <label for="electricField">電場の強さ: <span id="electricValue">0</span></label>
+                <input type="range" id="electricField" min="-5" max="5" value="0">
+            </div>
+
+            <div class="slider-group" id="vacuumSliderGroup" style="display:none;">
+                <label for="vacuumLevel">真空度: <span id="vacuumValue">0</span>%</label>
+                <input type="range" id="vacuumLevel" min="0" max="100" value="0">
+                <p style="font-size:0.85em;color:#666;margin-top:5px;">
+                    💡 真空度を上げると気体分子が減り、電場の影響がはっきりします。
+                </p>
+            </div>
+        </div>
+
+        <div class="control-card">
+            <h3>🔄 操作</h3>
+            <button class="reset-button" id="resetButton">画面をクリア</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ======== DOM 取得 ========
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const expRadios = document.querySelectorAll('input[name="experiment"]');
+    const voltageSlider  = document.getElementById('voltage');
+    const voltageValue   = document.getElementById('voltageValue');
+    const magneticSlider = document.getElementById('magneticField');
+    const magneticValue  = document.getElementById('magneticValue');
+    const electricSlider = document.getElementById('electricField');
+    const electricValue  = document.getElementById('electricValue');
+    const vacuumSlider   = document.getElementById('vacuumLevel');
+    const vacuumValue    = document.getElementById('vacuumValue');
+
+    const startButton = document.getElementById('startButton');
+    const pauseButton = document.getElementById('pauseButton');
+    const playButton  = document.getElementById('playButton');
+    const stopButton  = document.getElementById('stopButton');
+    const resetButton = document.getElementById('resetButton');
+
+    const magneticSliderGroup = document.getElementById('magneticSliderGroup');
+    const electricSliderGroup = document.getElementById('electricSliderGroup');
+    const vacuumSliderGroup   = document.getElementById('vacuumSliderGroup');
+
+    // ======== シミュレーション状態 ========
+    let width, height;
+    let cathodePos, anodePos, obstaclePos, obstacleSize, fluorescentScreenPos, eFieldPlates;
+
+    let particles = [];
+    let glowPoints = [];
+
+    let currentExperiment = 'basic';
+
+    let voltage       = 50;
+    let magneticField = 0;
+    let electricField = 0;
+    let vacuumLevel   = 0;   // ★ 初期値 0%
+
+    let isFiring = false;
+    let isAnimationPaused = false;
+    let fireInterval = null;
+
+    const FIRE_INTERVAL_MS = 200;
+    const MAX_PARTICLES = 200;
+    const PARTICLES_PER_BURST = 18;
+
+    const PARTICLE_SPEED_FACTOR = 0.1; // v ≒ 5 px/frame (V=50 のとき)
+    const MAX_HISTORY = 220;
+
+    // 磁場・電場の係数（±5 で蛍光板の端付近になるよう調整）
+    const MAG_FORCE_COEFF  = 0.0024;
+    const ELEC_FORCE_COEFF = 0.012;
+
+    // ======== 粒子クラス ========
+    class Particle {
+        constructor() {
+            this.active = false;
+            this.reset();
+        }
+
+        reset() {
+            this.x = cathodePos.x;
+            if (currentExperiment === 'basic' || currentExperiment === 'shadow') {
+                this.y = cathodePos.y + (Math.random() - 0.5) * 120;
+            } else {
+                this.y = cathodePos.y + (Math.random() - 0.5) * 20;
+            }
+            this.vx = voltage * PARTICLE_SPEED_FACTOR;
+            this.vy = 0;
+            this.history = [];
+            this.active = false;
+        }
+
+        activate() {
+            this.active = true;
+            this.history = [];
+        }
+
+        hitObstacle() {
+            if (currentExperiment !== 'shadow') return false;
+
+            const crossWidth = 15;
+            const centerX = obstaclePos.x + obstacleSize.w / 2;
+            const centerY = obstaclePos.y + obstacleSize.h / 2;
+
+            const hitVertical =
+                this.x > centerX - crossWidth / 2 &&
+                this.x < centerX + crossWidth / 2 &&
+                this.y > obstaclePos.y &&
+                this.y < obstaclePos.y + obstacleSize.h;
+
+            const hitHorizontal =
+                this.x > obstaclePos.x &&
+                this.x < obstaclePos.x + obstacleSize.w &&
+                this.y > centerY - crossWidth / 2 &&
+                this.y < centerY + crossWidth / 2;
+
+            return hitVertical || hitHorizontal;
+        }
+
+        update() {
+            if (!this.active) return;
+
+            let forceY = 0;
+            const inFieldRange =
+                this.x > eFieldPlates.xStart &&
+                this.x < eFieldPlates.xEnd;
+
+            if (currentExperiment === 'magnetic' && inFieldRange) {
+                // ローレンツ力（v ⊥ B）
+                forceY = -this.vx * magneticField * MAG_FORCE_COEFF;
+            } else if (currentExperiment === 'electric' && inFieldRange) {
+                // 電場による力（真空度で効き方が変わる）
+                const vacuumFactor = vacuumLevel / 100;
+                forceY = electricField * ELEC_FORCE_COEFF * vacuumFactor;
+            }
+
+            this.vy += forceY;
+            this.x  += this.vx;
+            this.y  += this.vy;
+
+            this.history.push({ x: this.x, y: this.y });
+            if (this.history.length > MAX_HISTORY) {
+                this.history.shift();
+            }
+
+            // 蛍光板に到達
+            if (this.x >= fluorescentScreenPos.x - 5) {
+                glowPoints.push({
+                    x: fluorescentScreenPos.x,
+                    y: this.y,
+                    time: Date.now()
+                });
+                this.active = false;
+                return;
+            }
+
+            // 画面外 or 十字板に衝突
+            if (this.x > width || this.y < 0 || this.y > height || this.hitObstacle()) {
+                this.active = false;
+            }
+        }
+
+        draw(ctx) {
+            // active でなくても history があれば描画 → ビームが「打ち切り」に見えにくくする
+            if (this.history.length < 2) return;
+
+            ctx.beginPath();
+            ctx.moveTo(this.history[0].x, this.history[0].y);
+            for (let i = 1; i < this.history.length; i++) {
+                ctx.lineTo(this.history[i].x, this.history[i].y);
+            }
+            ctx.strokeStyle = 'rgba(110, 255, 200, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            if (this.active) {
+                ctx.fillStyle = 'rgba(180, 255, 220, 0.95)';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    // ======== キャンバスと配置 ========
+    function setupCanvas() {
+        width  = canvas.clientWidth;
+        height = canvas.clientHeight;
+        canvas.width  = width;
+        canvas.height = height;
+
+        cathodePos = { x: 50,  y: height / 2 };
+        anodePos   = { x: 150, y: height / 2 };
+        obstaclePos  = { x: width / 2 - 30, y: height / 2 - 60 };
+        obstacleSize = { w: 60, h: 120 };
+        fluorescentScreenPos = { x: width - 60, y: height / 2 };
+        eFieldPlates = {
+            topY:    height / 2 - 80,
+            bottomY: height / 2 + 80,
+            xStart:  width / 2 - 120,
+            xEnd:    width / 2 + 120
+        };
+    }
+
+    function createParticles() {
+        particles = [];
+        for (let i = 0; i < MAX_PARTICLES; i++) {
+            particles.push(new Particle());
+        }
+    }
+
+    // ======== 描画 ========
+    function drawBackground() {
+        ctx.clearRect(0, 0, width, height);
+
+        // ガラス管
+        ctx.strokeStyle = 'rgba(100, 100, 120, 0.4)';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(0, 50);
+        ctx.lineTo(width, 50);
+        ctx.moveTo(0, height - 50);
+        ctx.lineTo(width, height - 50);
+        ctx.stroke();
+
+        // 陰極
+        ctx.fillStyle = '#4a90e2';
+        ctx.fillRect(cathodePos.x - 10, cathodePos.y - 25, 10, 50);
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 24px Arial';
+        ctx.fillText('-', cathodePos.x - 8, cathodePos.y + 8);
+
+        // 陽極（スリット形）
+        ctx.fillStyle = '#d0021b';
+        ctx.fillRect(anodePos.x - 5, anodePos.y - 45, 5, 90);
+        ctx.fillRect(anodePos.x + 5, anodePos.y - 45, 5, 90);
+        ctx.fillStyle = 'white';
+        ctx.fillText('+', anodePos.x - 2, anodePos.y + 8);
+
+        // 蛍光板
+        ctx.fillStyle = 'rgba(100, 150, 100, 0.25)';
+        ctx.fillRect(fluorescentScreenPos.x, 0, 10, height);
+        ctx.fillStyle = 'white';
+        ctx.font = '14px Arial';
+        ctx.fillText('蛍光板', fluorescentScreenPos.x - 18, 30);
+
+        if (currentExperiment === 'shadow') {
+            drawCrossObstacle();
+            drawShadowOnScreen();
+        } else if (currentExperiment === 'magnetic') {
+            drawMagneticField();
+        } else if (currentExperiment === 'electric') {
+            drawElectricField();
+        }
+    }
+
+    function drawCrossObstacle() {
+        const centerX = obstaclePos.x + obstacleSize.w / 2;
+        const centerY = obstaclePos.y + obstacleSize.h / 2;
+        const crossWidth = 15;
+
+        ctx.fillStyle = 'rgba(180, 180, 180, 0.9)';
+        ctx.fillRect(centerX - crossWidth / 2, obstaclePos.y, crossWidth, obstacleSize.h);
+        ctx.fillRect(obstaclePos.x, centerY - crossWidth / 2, obstacleSize.w, crossWidth);
+
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(centerX - crossWidth / 2, obstaclePos.y, crossWidth, obstacleSize.h);
+        ctx.strokeRect(obstaclePos.x, centerY - crossWidth / 2, obstacleSize.w, crossWidth);
+    }
+
+    function drawShadowOnScreen() {
+        const centerX = obstaclePos.x + obstacleSize.w / 2;
+        const centerY = obstaclePos.y + obstacleSize.h / 2;
+        const crossWidth = 15;
+
+        const scale = (fluorescentScreenPos.x - cathodePos.x) /
+                      (centerX - cathodePos.x);
+        const shadowCenterY   = cathodePos.y + (centerY - cathodePos.y) * scale;
+        const shadowCrossWidth = crossWidth * scale;
+        const shadowHeight    = obstacleSize.h * scale;
+        const shadowWidth     = obstacleSize.w * scale;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(
+            fluorescentScreenPos.x - 5,
+            shadowCenterY - shadowHeight / 2,
+            10,
+            shadowHeight
+        );
+
+        ctx.fillRect(
+            fluorescentScreenPos.x - shadowWidth * 0.15,
+            shadowCenterY - shadowCrossWidth / 2,
+            shadowWidth * 0.3,
+            shadowCrossWidth
+        );
+    }
+
+    function drawMagneticField() {
+        if (Math.abs(magneticField) < 0.2) return;
+
+        const fieldCenterX = (eFieldPlates.xStart + eFieldPlates.xEnd) / 2;
+        const fieldCenterY = height / 2;
+        const fieldWidth   = eFieldPlates.xEnd - eFieldPlates.xStart;
+        const fieldHeight  = eFieldPlates.bottomY - eFieldPlates.topY;
+
+        const magnetWidth  = 80;
+        const magnetHeight = 60;
+        const magnetY = magneticField > 0
+            ? fieldCenterY - fieldHeight / 2 - 80
+            : fieldCenterY + fieldHeight / 2 + 20;
+
+        if (magneticField > 0) {
+            ctx.fillStyle = '#d0021b';
+            ctx.fillRect(fieldCenterX - magnetWidth / 2, magnetY, magnetWidth, magnetHeight);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 28px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('N', fieldCenterX, magnetY + 40);
+        } else {
+            ctx.fillStyle = '#4a90e2';
+            ctx.fillRect(fieldCenterX - magnetWidth / 2, magnetY, magnetWidth, magnetHeight);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 28px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('S', fieldCenterX, magnetY + 40);
+        }
+
+        ctx.strokeStyle = magneticField > 0
+            ? 'rgba(208, 2, 27, 0.5)'
+            : 'rgba(74, 144, 226, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.strokeRect(
+            eFieldPlates.xStart,
+            eFieldPlates.topY,
+            fieldWidth,
+            fieldHeight
+        );
+        ctx.setLineDash([]);
+
+        const strengthRatio = Math.min(1, Math.abs(magneticField) / 5);
+        const numSymbols = 3 + Math.floor(strengthRatio * 7); // 3〜10 個
+        for (let i = 1; i <= numSymbols; i++) {
+            const x = eFieldPlates.xStart + fieldWidth * i / (numSymbols + 1);
+            const y = fieldCenterY;
+
+            if (magneticField > 0) {
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(208, 2, 27, 0.6)';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = 'white';
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(74, 144, 226, 0.6)';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(x - 5, y - 5);
+                ctx.lineTo(x + 5, y + 5);
+                ctx.moveTo(x - 5, y + 5);
+                ctx.lineTo(x + 5, y - 5);
+                ctx.stroke();
+            }
+        }
+
+        ctx.textAlign = 'left';
+    }
+
+    function drawElectricField() {
+        // 電極板
+        ctx.fillStyle = 'rgba(200, 200, 0, 0.8)';
+        ctx.fillRect(
+            eFieldPlates.xStart,
+            eFieldPlates.topY - 10,
+            eFieldPlates.xEnd - eFieldPlates.xStart,
+            10
+        );
+        ctx.fillRect(
+            eFieldPlates.xStart,
+            eFieldPlates.bottomY,
+            eFieldPlates.xEnd - eFieldPlates.xStart,
+            10
+        );
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 22px Arial';
+        if (electricField > 0) {
+            ctx.fillText('+', eFieldPlates.xStart + 10, eFieldPlates.topY - 15);
+            ctx.fillText('-', eFieldPlates.xStart + 10, eFieldPlates.bottomY + 28);
+        } else if (electricField < 0) {
+            ctx.fillText('-', eFieldPlates.xStart + 10, eFieldPlates.topY - 15);
+            ctx.fillText('+', eFieldPlates.xStart + 10, eFieldPlates.bottomY + 28);
+        }
+
+        if (Math.abs(electricField) > 0.2) {
+            const numLines = 3 + Math.floor(Math.abs(electricField) * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 100, 0.5)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= numLines; i++) {
+                const x = eFieldPlates.xStart +
+                    (eFieldPlates.xEnd - eFieldPlates.xStart) * i / numLines;
+                ctx.beginPath();
+                ctx.moveTo(x, eFieldPlates.topY);
+                ctx.lineTo(x, eFieldPlates.bottomY);
+                ctx.stroke();
+
+                if (i % 3 === 0) {
+                    const direction = electricField > 0 ? 1 : -1;
+                    const arrowY = (eFieldPlates.topY + eFieldPlates.bottomY) / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, arrowY);
+                    ctx.lineTo(x - 3, arrowY - 6 * direction);
+                    ctx.lineTo(x + 3, arrowY - 6 * direction);
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(255, 255, 100, 0.7)';
+                    ctx.fill();
+                }
+            }
+        }
+
+        ctx.fillStyle = 'white';
+        ctx.font = '16px Arial';
+        ctx.fillText(`真空度: ${vacuumLevel}%`, eFieldPlates.xStart + 10, height - 40);
+    }
+
+    function drawGlowPoints() {
+        const now = Date.now();
+        glowPoints = glowPoints.filter(p => now - p.time < 3000);
+
+        glowPoints.forEach(p => {
+            const age = now - p.time;
+            const intensity = Math.max(0, 1 - age / 3000);
+
+            ctx.fillStyle = `rgba(100, 255, 150, ${intensity * 0.8})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = `rgba(100, 255, 150, ${intensity * 0.3})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    // ======== メインループ ========
+    function animate() {
+        drawBackground();
+        drawGlowPoints();
+
+        particles.forEach(p => {
+            if (!isAnimationPaused) {
+                p.update();
+            }
+            p.draw(ctx);
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    // ======== 発射関連 ========
+    function fireParticles() {
+        let count = 0;
+        for (let i = 0; i < particles.length && count < PARTICLES_PER_BURST; i++) {
+            if (!particles[i].active) {
+                particles[i].reset();
+                particles[i].activate();
+                count++;
+            }
+        }
+    }
+
+    function startFiring() {
+        if (isFiring) return;
+        isFiring = true;
+        isAnimationPaused = false;
+
+        startButton.style.display = 'none';
+        pauseButton.style.display = 'block';
+        playButton.style.display  = 'none';
+        stopButton.style.display  = 'block';
+
+        fireParticles();
+        fireInterval = setInterval(fireParticles, FIRE_INTERVAL_MS);
+    }
+
+    function pauseFiring() {
+        if (!isFiring) return;
+        isAnimationPaused = true;
+
+        pauseButton.style.display = 'none';
+        playButton.style.display  = 'block';
+
+        if (fireInterval) {
+            clearInterval(fireInterval);
+            fireInterval = null;
+        }
+    }
+
+    function resumeFiring() {
+        if (!isFiring) return;
+        isAnimationPaused = false;
+
+        playButton.style.display  = 'none';
+        pauseButton.style.display = 'block';
+
+        if (!fireInterval) {
+            fireInterval = setInterval(fireParticles, FIRE_INTERVAL_MS);
+        }
+    }
+
+    function stopFiring() {
+        if (!isFiring) return;
+        isFiring = false;
+        isAnimationPaused = false;
+
+        startButton.style.display = 'block';
+        pauseButton.style.display = 'none';
+        playButton.style.display  = 'none';
+        stopButton.style.display  = 'none';
+
+        if (fireInterval) {
+            clearInterval(fireInterval);
+            fireInterval = null;
+        }
+
+        clearSimulation();
+    }
+
+    function clearSimulation() {
+        glowPoints = [];
+        particles.forEach(p => {
+            p.active = false;
+            p.history = [];
+        });
+    }
+
+    // ======== UI 更新 ========
+    function updateUI() {
+        if (currentExperiment === 'magnetic') {
+            magneticSliderGroup.style.display = 'block';
+            electricSliderGroup.style.display = 'none';
+            vacuumSliderGroup.style.display   = 'none';
+        } else if (currentExperiment === 'electric') {
+            magneticSliderGroup.style.display = 'none';
+            electricSliderGroup.style.display = 'block';
+            vacuumSliderGroup.style.display   = 'block';
+        } else {
+            magneticSliderGroup.style.display = 'none';
+            electricSliderGroup.style.display = 'none';
+            vacuumSliderGroup.style.display   = 'none';
+        }
+    }
+
+    function onConditionChange() {
+        clearSimulation();
+        if (isFiring && !isAnimationPaused) {
+            fireParticles();
+        }
+    }
+
+    // ======== イベントリスナー ========
+    expRadios.forEach(radio => {
+        radio.addEventListener('change', e => {
+            currentExperiment = e.target.value;
+            updateUI();
+            clearSimulation();
+        });
+    });
+
+    voltageSlider.addEventListener('input', e => {
+        voltage = Number(e.target.value);
+        voltageValue.textContent = voltage;
+        onConditionChange();
+    });
+
+    magneticSlider.addEventListener('input', e => {
+        magneticField = Number(e.target.value);
+        magneticValue.textContent = magneticField;
+        onConditionChange();
+    });
+
+    electricSlider.addEventListener('input', e => {
+        electricField = Number(e.target.value);
+        electricValue.textContent = electricField;
+        onConditionChange();
+    });
+
+    vacuumSlider.addEventListener('input', e => {
+        vacuumLevel = Number(e.target.value);
+        vacuumValue.textContent = vacuumLevel;
+        onConditionChange();
+    });
+
+    startButton.addEventListener('click', startFiring);
+    pauseButton.addEventListener('click', pauseFiring);
+    playButton.addEventListener('click', resumeFiring);
+    stopButton.addEventListener('click', stopFiring);
+
+    resetButton.addEventListener('click', () => {
+        clearSimulation();
+    });
+
+    window.addEventListener('resize', () => {
+        setupCanvas();
+        createParticles();
+        clearSimulation();
+    });
+
+    // ======== 初期化 ========
+    function init() {
+        setupCanvas();
+        createParticles();
+        updateUI();
+
+        voltage      = Number(voltageSlider.value);
+        voltageValue.textContent = voltage;
+
+        magneticField = Number(magneticSlider.value);
+        magneticValue.textContent = magneticField;
+
+        electricField = Number(electricSlider.value);
+        electricValue.textContent = electricField;
+
+        vacuumLevel = Number(vacuumSlider.value); // 0 でスタート
+        vacuumValue.textContent = vacuumLevel;
+
+        animate();
+    }
+
+    init();
+</script>
+
+</body>
+</html>
